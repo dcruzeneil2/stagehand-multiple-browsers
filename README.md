@@ -1,10 +1,13 @@
 # Kernel TypeScript Sample App - Stagehand
 
-A Stagehand-powered browser automation app that extracts team size information from Y Combinator company pages.
+A Stagehand-powered browser automation app that extracts company information from Y Combinator company pages using multiple browsers.
 
 ## What it does
 
-The `teamsize-task` searches for a startup on Y Combinator's company directory and extracts the team size (number of employees).
+The `company-info-task` searches for a startup on Y Combinator's company directory and extracts company information using three separate browser instances:
+- **Browser 1**: Extracts team size (number of employees)
+- **Browser 2**: Extracts company location
+- **Browser 3**: Extracts CEO/founder name
 
 ## Input
 
@@ -18,7 +21,9 @@ The `teamsize-task` searches for a startup on Y Combinator's company directory a
 
 ```json
 {
-  "teamSize": "11"  // Team size as shown on YC company page
+  "teamSize": "11",        // Team size as shown on YC company page
+  "location": "San Francisco, CA",  // Company location
+  "ceo": "John Doe"        // CEO or founder name
 }
 ```
 
@@ -41,10 +46,10 @@ kernel deploy index.ts --env-file .env
 
 Default query (searches for "kernel"):
 ```bash
-kernel invoke ts-stagehand teamsize-task
+kernel invoke stagehand-multiple-browsers company-info-task
 ```
 
 Custom query:
 ```bash
-kernel invoke ts-stagehand teamsize-task --payload '{"company": "Mixpanel"}'
+kernel invoke stagehand-multiple-browsers company-info-task --payload '{"company": "Mixpanel"}'
 ```

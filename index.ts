@@ -6,467 +6,290 @@ const kernel = new Kernel();
 
 const app = kernel.app('stagehand-multiple-browsers');
 
-interface GeoCoordinates {
-  latitude: number;
-  longitude: number;
-  altitude?: number | null;
-}
-
-interface ProxyAuth {
-  username: string;
-  password: string;
-  protocol: 'http' | 'https' | 'socks4' | 'socks5';
-}
-
-interface ProxyConfig {
-  host: string;
-  port: number;
-  auth?: ProxyAuth;
-  bypassList: string[];
-  rotateEveryNRequests: number | null;
-}
-
-interface ViewportDimensions {
-  width: number;
-  height: number;
-  deviceScaleFactor: number;
-  isMobile: boolean;
-  hasTouch: boolean;
-  isLandscape: boolean;
-}
-
-interface RetryPolicy {
-  maxRetries: number;
-  baseDelayMs: number;
-  maxDelayMs: number;
-  backoffMultiplier: number;
-  retryableStatusCodes: number[];
-  retryOnTimeout: boolean;
-}
-
-interface WebhookConfig {
-  url: string;
-  method: 'GET' | 'POST' | 'PUT' | 'PATCH';
-  headers: Record<string, string>;
-  retryPolicy: RetryPolicy;
-  payloadTransform?: string;
-  signingSecret?: string | null;
-  enabled: boolean;
-}
-
-interface ScheduleConfig {
-  cronExpression: string;
-  timezone: string;
-  enabled: boolean;
-  startDate: string;
-  endDate?: string | null;
-  maxExecutions: number | null;
-  skipWeekends: boolean;
-  blackoutDates: string[];
-}
-
-interface FundingRange {
-  min: number;
-  max: number;
-  currency: 'USD' | 'EUR' | 'GBP' | 'JPY' | 'CAD' | 'AUD';
-  includeUndisclosed: boolean;
-}
-
-interface TeamSizeRange {
-  min: number;
-  max: number;
-  includeFoundersOnly: boolean;
-}
-
-interface LocationFilter {
-  country: string;
-  state?: string;
-  city?: string;
-  coordinates?: GeoCoordinates;
-  radiusKm?: number;
-  remoteOnly: boolean;
-  hybridAcceptable: boolean;
-  excludedRegions: string[];
-}
-
-interface SearchFilter {
-  teamSize: TeamSizeRange;
-  funding: FundingRange;
-  location: LocationFilter;
-  industries: string[];
-  excludedIndustries: string[];
-  batchYears: number[];
-  status: 'active' | 'inactive' | 'acquired' | 'public' | 'any';
-  foundedAfter?: string;
-  foundedBefore?: string;
-  hasOpenJobs: boolean | null;
-  isOpenSource: boolean | null;
-  tags: Record<string, boolean>;
-}
-
-interface CompetitorEntry {
-  name: string;
-  url?: string;
-  domain?: string;
-  priority: 1 | 2 | 3 | 4 | 5;
-  relationship: 'direct' | 'indirect' | 'potential' | 'adjacent';
-  notes: string[];
-  metrics?: Record<string, number>;
-}
-
-interface SearchStrategy {
-  name: string;
-  enabled: boolean;
-  weight: number;
-  fallback?: {
-    strategy: string;
-    maxAttempts: number;
-    delayBetweenAttemptsMs: number;
-  };
-  keywords: string[];
-  exclusionPatterns: string[];
-  caseSensitive: boolean;
-  fuzzyMatchThreshold: number;
-}
-
-interface ExtractionFieldConfig {
-  field: 'teamSize' | 'location' | 'ceo' | 'funding' | 'founded' | 'description' | 'website' | 'socialLinks' | 'techStack' | 'jobs';
-  required: boolean;
-  fallbackValue?: string | number | boolean | null;
-  validationRegex?: string;
-  transform?: 'uppercase' | 'lowercase' | 'trim' | 'capitalize' | 'none';
-}
-
-interface OutputFormatConfig {
-  format: 'json' | 'csv' | 'markdown' | 'yaml' | 'xml' | 'html';
-  prettyPrint: boolean;
-  includeMetadata: boolean;
-  includeTimestamps: boolean;
-  nullHandling: 'omit' | 'empty_string' | 'literal_null' | 'dash';
-  arrayDelimiter: string;
-  nestedObjectHandling: 'flatten' | 'preserve' | 'dot_notation';
-}
-
-interface RateLimitConfig {
-  requestsPerSecond: number;
-  requestsPerMinute: number;
-  burstSize: number;
-  cooldownMs: number;
-  respectRobotsTxt: boolean;
-  customDelayPatterns: Array<{
-    urlPattern: string;
-    delayMs: number;
-  }>;
-}
-
-interface NotificationChannel {
-  type: 'email' | 'slack' | 'discord' | 'teams' | 'webhook' | 'sms';
-  destination: string;
-  onSuccess: boolean;
-  onFailure: boolean;
-  onPartialFailure: boolean;
-  templateId?: string;
-  throttleMinutes: number;
-}
-
-interface CacheConfig {
-  enabled: boolean;
-  ttlSeconds: number;
-  strategy: 'lru' | 'fifo' | 'lfu' | 'ttl';
-  maxEntries: number;
-  invalidateOnDeploy: boolean;
-  compressionEnabled: boolean;
-  partitionKey?: string;
-}
-
-interface CompanyInput {
-  // ── Basic Primitives ──
-  company: string;
-  maxResults: number;
-  confidenceThreshold: number;
-  includeAlumni: boolean;
-  dryRun: boolean;
-  verbosityLevel: 0 | 1 | 2 | 3;
-
-  // ── Enums / Union Literals ──
-  sortBy: 'relevance' | 'date' | 'teamSize' | 'funding' | 'alphabetical';
-  searchMode: 'exact' | 'fuzzy' | 'semantic' | 'regex';
-  priority: 'low' | 'medium' | 'high' | 'critical';
-
-  // ── Arrays of Primitives ──
-  alternateNames: string[];
-  targetBatchNumbers: number[];
-  excludedCompanyIds: string[];
-  weightVector: number[];
-
-  // ── Nested Objects (multiple levels deep) ──
-  filters: SearchFilter;
-  browserConfig: {
-    viewport: ViewportDimensions;
-    userAgent: string;
-    locale: string;
-    timezoneId: string;
-    geolocation?: GeoCoordinates;
-    permissions: string[];
-    extraHTTPHeaders: Record<string, string>;
-    timeout: number;
-    stealth: boolean;
-    proxy?: ProxyConfig;
-    retryPolicy: RetryPolicy;
-    cookies: Array<{
-      name: string;
-      value: string;
-      domain: string;
-      path: string;
-      secure: boolean;
-      httpOnly: boolean;
-      sameSite: 'Strict' | 'Lax' | 'None';
-      expiresUnixTimestamp?: number;
-    }>;
-  };
-
-  // ── Array of Complex Objects ──
-  competitors: CompetitorEntry[];
-  searchStrategies: SearchStrategy[];
-  extractionFields: ExtractionFieldConfig[];
-  notificationChannels: NotificationChannel[];
-
-  // ── Record / Map Types ──
-  customMetadata: Record<string, string>;
-  featureFlags: Record<string, boolean>;
-  numericParameters: Record<string, number>;
-  environmentOverrides: Record<string, string | number | boolean>;
-
-  // ── Tuple-like Arrays ──
-  dateRange: [string, string];
-  coordinateBounds: [[number, number], [number, number]];
-  rgbBrandColor: [number, number, number];
-
-  // ── Nullable Fields ──
-  referenceCompanyId: string | null;
-  parentOrganization: string | null;
-  previousSearchId: string | null;
-
-  // ── Optional Complex Fields ──
-  webhookConfig?: WebhookConfig;
-  scheduleConfig?: ScheduleConfig;
-  cacheConfig?: CacheConfig;
-  rateLimit?: RateLimitConfig;
-
-  // ── Output Configuration ──
-  outputFormat: OutputFormatConfig;
-
-  // ── Nested Arrays of Arrays ──
-  comparisonMatrix: string[][];
-  searchTermVariations: string[][];
-  historicalDataPoints: Array<Array<{ timestamp: string; value: number; label: string }>>;
-
-  // ── Deeply Nested with Mixed Types ──
-  pipelineConfig: {
-    stages: Array<{
-      name: string;
-      enabled: boolean;
-      order: number;
-      timeout: number;
-      config: Record<string, string | number | boolean>;
-      inputMapping: Record<string, string>;
-      outputMapping: Record<string, string>;
-      onError: 'skip' | 'abort' | 'retry' | 'fallback';
-      conditions: Array<{
-        field: string;
-        operator: 'eq' | 'neq' | 'gt' | 'gte' | 'lt' | 'lte' | 'contains' | 'regex' | 'exists';
-        value: string | number | boolean | null;
-        negate: boolean;
-      }>;
-    }>;
-    globalTimeout: number;
-    parallelExecution: boolean;
-    maxConcurrency: number;
-    errorBudgetPercent: number;
-  };
-
-  // ── Auth / Credentials Config ──
-  authConfig: {
-    type: 'none' | 'apiKey' | 'oauth2' | 'bearer' | 'basic';
-    credentials?: {
-      key?: string;
-      secret?: string;
-      token?: string;
-      refreshToken?: string;
-      expiresAt?: string;
-      scopes: string[];
-    };
-    autoRefresh: boolean;
-    tokenEndpoint?: string | null;
-  };
-
-  // ── Complex Validation Rules ──
-  validationRules: Array<{
-    fieldPath: string;
-    type: 'required' | 'minLength' | 'maxLength' | 'pattern' | 'range' | 'custom';
-    params: Record<string, string | number | boolean>;
-    errorMessage: string;
-    severity: 'error' | 'warning' | 'info';
-  }>;
-
-  // ── Tagging / Classification ──
-  classification: {
-    primaryCategory: string;
-    secondaryCategories: string[];
-    confidenceScores: Record<string, number>;
-    manualOverrides: Record<string, boolean>;
-    labelHierarchy: Array<{ parent: string; children: string[]; depth: number }>;
-  };
-
-  // ── Boolean Matrix ──
-  permissionMatrix: Record<string, Record<string, boolean>>;
-}
-
-interface CompanyOutput {
-  teamSize: string;
-  location: string;
-  ceo: string;
-}
-
-// LLM API Keys are set in the environment during `kernel deploy <filename> -e OPENAI_API_KEY=XXX`
-// See https://www.onkernel.com/docs/apps/deploy#environment-variables
-
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
 
 if (!OPENAI_API_KEY) {
   throw new Error('OPENAI_API_KEY is not set');
 }
 
-app.action<CompanyInput, CompanyOutput>(
-  'company-info-task',
-  async (ctx: KernelContext, payload?: CompanyInput): Promise<CompanyOutput> => {
-    const company = payload?.company || 'kernel';
-    const useStealth = payload?.browserConfig?.stealth ?? true;
-    const timeout = payload?.browserConfig?.timeout ?? 30_000;
-    const verbose = payload?.verbosityLevel ?? 1;
+// ═══════════════════════════════════════════════════════════════
+// ACTION 1: company-lookup
+// Types tested: string, string[], number, boolean, enum, nested object
+// ═══════════════════════════════════════════════════════════════
 
-    // =====================
-    // BROWSER 1: Extract team size
-    // =====================
-    const kernelBrowser1 = await kernel.browsers.create({
+interface CompanyLookupInput {
+  companies: string[];
+  maxCompanies: number;
+  stealth: boolean;
+  searchSite: 'ycombinator' | 'crunchbase' | 'wikipedia';
+  viewport: { width: number; height: number; isMobile: boolean };
+  searchQuery: string;
+}
+
+interface CompanyLookupOutput {
+  results: Array<{ company: string; summary: string }>;
+  totalProcessed: number;
+}
+
+const SITE_URLS: Record<CompanyLookupInput['searchSite'], string> = {
+  ycombinator: 'https://www.ycombinator.com/companies',
+  crunchbase: 'https://www.crunchbase.com/discover/organization.companies',
+  wikipedia: 'https://en.wikipedia.org/wiki/Main_Page',
+};
+
+app.action<CompanyLookupInput, CompanyLookupOutput>(
+  'company-lookup',
+  async (ctx: KernelContext, payload?: CompanyLookupInput): Promise<CompanyLookupOutput> => {
+    const companies = (payload?.companies ?? ['kernel']).slice(0, payload?.maxCompanies ?? 3);
+    const stealth = payload?.stealth ?? true;
+    const searchSite = payload?.searchSite ?? 'ycombinator';
+    const viewport = payload?.viewport ?? { width: 1280, height: 720, isMobile: false };
+    const searchQuery = payload?.searchQuery ?? 'company description and what they do';
+    const siteUrl = SITE_URLS[searchSite];
+
+    const results: Array<{ company: string; summary: string }> = [];
+
+    for (const company of companies) {
+      const browser = await kernel.browsers.create({
+        invocation_id: ctx.invocation_id,
+        stealth,
+      });
+      console.log(`[company-lookup] Browser for "${company}": ${browser.browser_live_view_url}`);
+
+      const stagehand = new Stagehand({
+        env: "LOCAL",
+        localBrowserLaunchOptions: { cdpUrl: browser.cdp_ws_url },
+        model: "openai/gpt-4.1",
+        apiKey: OPENAI_API_KEY,
+        verbose: 1,
+        domSettleTimeout: 30_000,
+      });
+      await stagehand.init();
+
+      const page = stagehand.context.pages()[0];
+      await page.setViewportSize({ width: viewport.width, height: viewport.height });
+      await page.goto(siteUrl);
+      await stagehand.act(`Type in ${company} into the search box`);
+      await stagehand.act("Click on the first search result");
+
+      const extractionSchema = z.object({ summary: z.string() });
+      const extracted = await stagehand.extract(
+        `Extract the following about this company: ${searchQuery}`,
+        extractionSchema,
+      );
+
+      results.push({ company, summary: extracted.summary });
+
+      await stagehand.close();
+      await kernel.browsers.deleteByID(browser.session_id);
+      console.log(`[company-lookup] Browser for "${company}" killed`);
+
+      if (company !== companies[companies.length - 1]) {
+        await new Promise(resolve => setTimeout(resolve, 2000));
+      }
+    }
+
+    return { results, totalProcessed: results.length };
+  },
+);
+
+// ═══════════════════════════════════════════════════════════════
+// ACTION 2: price-checker
+// Types tested: string, nested object with enum, enum, number | null,
+//               Record<string, boolean>, Array<object>, Record<string, string>
+// ═══════════════════════════════════════════════════════════════
+
+interface PriceCheckerInput {
+  product: string;
+  priceRange: { min: number; max: number; currency: 'USD' | 'EUR' | 'GBP' };
+  sortBy: 'price_asc' | 'price_desc' | 'rating' | 'relevance';
+  maxPriceOverride: number | null;
+  filters: Record<string, boolean>;
+  customAttributes: Array<{ name: string; value: string; weight: number }>;
+  headers: Record<string, string>;
+}
+
+interface PriceCheckerOutput {
+  product: string;
+  priceResults: string;
+  filtersApplied: string[];
+  sortUsed: string;
+}
+
+app.action<PriceCheckerInput, PriceCheckerOutput>(
+  'price-checker',
+  async (ctx: KernelContext, payload?: PriceCheckerInput): Promise<PriceCheckerOutput> => {
+    const product = payload?.product ?? 'mechanical keyboard';
+    const priceRange = payload?.priceRange ?? { min: 0, max: 200, currency: 'USD' as const };
+    const sortBy = payload?.sortBy ?? 'relevance';
+    const maxPriceOverride = payload?.maxPriceOverride ?? null;
+    const filters = payload?.filters ?? {};
+    const customAttributes = payload?.customAttributes ?? [];
+    const headers = payload?.headers ?? {};
+
+    const effectiveMaxPrice = maxPriceOverride !== null ? maxPriceOverride : priceRange.max;
+
+    const browser = await kernel.browsers.create({
       invocation_id: ctx.invocation_id,
-      stealth: useStealth,
+      stealth: true,
     });
-    console.log("Browser 1 live view url: ", kernelBrowser1.browser_live_view_url);
+    console.log(`[price-checker] Browser: ${browser.browser_live_view_url}`);
 
-    const stagehand1 = new Stagehand({
+    const stagehand = new Stagehand({
       env: "LOCAL",
-      localBrowserLaunchOptions: {
-        cdpUrl: kernelBrowser1.cdp_ws_url,
-      },
+      localBrowserLaunchOptions: { cdpUrl: browser.cdp_ws_url },
       model: "openai/gpt-4.1",
       apiKey: OPENAI_API_KEY,
-      verbose: verbose,
-      domSettleTimeout: timeout
+      verbose: 1,
+      domSettleTimeout: 30_000,
     });
-    await stagehand1.init();
+    await stagehand.init();
 
-    const page1 = stagehand1.context.pages()[0];
-    await page1.goto("https://www.ycombinator.com/companies");
-    await stagehand1.act(`Type in ${company} into the search box`);
-    await stagehand1.act("Click on the first search result");
+    const page = stagehand.context.pages()[0];
 
-    const teamSizeSchema = z.object({
-      teamSize: z.string(),
-    });
-    const teamSizeResult = await stagehand1.extract(
-      "Extract the team size (number of employees) shown on this Y Combinator company page.",
-      teamSizeSchema
+    if (Object.keys(headers).length > 0) {
+      await page.setExtraHTTPHeaders(headers);
+    }
+
+    await page.goto('https://www.google.com/shopping');
+    await stagehand.act(`Search for ${product}`);
+
+    const activeFilters: string[] = [];
+    for (const [filterName, enabled] of Object.entries(filters)) {
+      if (enabled) {
+        activeFilters.push(filterName);
+        await stagehand.act(`Click on the "${filterName}" filter if available`);
+      }
+    }
+
+    if (sortBy !== 'relevance') {
+      const sortLabel = { price_asc: 'Price: Low to High', price_desc: 'Price: High to Low', rating: 'Rating' }[sortBy];
+      await stagehand.act(`Sort results by "${sortLabel}"`);
+    }
+
+    const attributeContext = customAttributes
+      .sort((a, b) => b.weight - a.weight)
+      .map(attr => `${attr.name}: ${attr.value}`)
+      .join(', ');
+
+    const extractionSchema = z.object({ priceResults: z.string() });
+    const extracted = await stagehand.extract(
+      `Extract product names and prices for "${product}" in the range ${priceRange.min}-${effectiveMaxPrice} ${priceRange.currency}.${attributeContext ? ` Focus on products matching: ${attributeContext}.` : ''}`,
+      extractionSchema,
     );
 
-    await new Promise(resolve => setTimeout(resolve, 2000));
-
-    // =====================
-    // BROWSER 2: Extract location
-    // =====================
-    const kernelBrowser2 = await kernel.browsers.create({
-      invocation_id: ctx.invocation_id,
-      stealth: useStealth,
-    });
-    console.log("Browser 2 live view url: ", kernelBrowser2.browser_live_view_url);
-
-    await stagehand1.close();
-    await kernel.browsers.deleteByID(kernelBrowser1.session_id);
-    console.log("Browser 1 killed");
-
-    const stagehand2 = new Stagehand({
-      env: "LOCAL",
-      localBrowserLaunchOptions: {
-        cdpUrl: kernelBrowser2.cdp_ws_url,
-      },
-      model: "openai/gpt-4.1",
-      apiKey: OPENAI_API_KEY,
-      verbose: verbose,
-      domSettleTimeout: timeout
-    });
-    await stagehand2.init();
-
-    const page2 = stagehand2.context.pages()[0];
-    await page2.goto("https://www.ycombinator.com/companies");
-    await stagehand2.act(`Type in ${company} into the search box`);
-    await stagehand2.act("Click on the first search result");
-
-    const locationSchema = z.object({
-      location: z.string(),
-    });
-    const locationResult = await stagehand2.extract(
-      "Extract the location of the company shown on this Y Combinator company page.",
-      locationSchema
-    );
-
-    await new Promise(resolve => setTimeout(resolve, 2000));
-
-    // =====================
-    // BROWSER 3: Extract CEO
-    // =====================
-    const kernelBrowser3 = await kernel.browsers.create({
-      invocation_id: ctx.invocation_id,
-      stealth: useStealth,
-    });
-    console.log("Browser 3 live view url: ", kernelBrowser3.browser_live_view_url);
-
-    const stagehand3 = new Stagehand({
-      env: "LOCAL",
-      localBrowserLaunchOptions: {
-        cdpUrl: kernelBrowser3.cdp_ws_url,
-      },
-      model: "openai/gpt-4.1",
-      apiKey: OPENAI_API_KEY,
-      verbose: verbose,
-      domSettleTimeout: timeout
-    });
-    await stagehand3.init();
-
-    const page3 = stagehand3.context.pages()[0];
-    await page3.goto("https://www.ycombinator.com/companies");
-    await stagehand3.act(`Type in ${company} into the search box`);
-    await stagehand3.act("Click on the first search result");
-
-    const ceoSchema = z.object({
-      ceo: z.string(),
-    });
-    const ceoResult = await stagehand3.extract(
-      "Extract the name of the CEO or founder shown on this Y Combinator company page.",
-      ceoSchema
-    );
-
-    await stagehand2.close();
-    await kernel.browsers.deleteByID(kernelBrowser2.session_id);
-    console.log("Browser 2 killed");
-
-    await stagehand3.close();
-    await kernel.browsers.deleteByID(kernelBrowser3.session_id);
-    console.log("Browser 3 killed");
+    await stagehand.close();
+    await kernel.browsers.deleteByID(browser.session_id);
+    console.log('[price-checker] Browser killed');
 
     return {
-      teamSize: teamSizeResult.teamSize,
-      location: locationResult.location,
-      ceo: ceoResult.ceo,
+      product,
+      priceResults: extracted.priceResults,
+      filtersApplied: activeFilters,
+      sortUsed: sortBy,
+    };
+  },
+);
+
+// ═══════════════════════════════════════════════════════════════
+// ACTION 3: news-digest
+// Types tested: string[], [string, string] tuple, number, boolean,
+//               optional string, number[], Record<string, number>
+// ═══════════════════════════════════════════════════════════════
+
+interface NewsDigestInput {
+  topics: string[];
+  dateRange: [string, string];
+  maxArticles: number;
+  includePaywalled: boolean;
+  notifyEmail?: string;
+  priorityScores: number[];
+  sourceWeights: Record<string, number>;
+}
+
+interface NewsDigestOutput {
+  articles: Array<{ topic: string; headlines: string }>;
+  totalTopics: number;
+  notificationSentTo: string | null;
+}
+
+app.action<NewsDigestInput, NewsDigestOutput>(
+  'news-digest',
+  async (ctx: KernelContext, payload?: NewsDigestInput): Promise<NewsDigestOutput> => {
+    const topics = payload?.topics ?? ['AI startups'];
+    const dateRange = payload?.dateRange ?? ['2025-01-01', '2025-12-31'];
+    const maxArticles = payload?.maxArticles ?? 5;
+    const includePaywalled = payload?.includePaywalled ?? false;
+    const notifyEmail = payload?.notifyEmail;
+    const priorityScores = payload?.priorityScores ?? [];
+    const sourceWeights = payload?.sourceWeights ?? {};
+
+    const sortedTopics = topics
+      .map((topic, i) => ({ topic, score: priorityScores[i] ?? 0 }))
+      .sort((a, b) => b.score - a.score)
+      .map(entry => entry.topic);
+
+    const preferredSources = Object.entries(sourceWeights)
+      .filter(([, weight]) => weight > 0.5)
+      .map(([source]) => source);
+
+    const articles: Array<{ topic: string; headlines: string }> = [];
+
+    for (const topic of sortedTopics) {
+      const browser = await kernel.browsers.create({
+        invocation_id: ctx.invocation_id,
+        stealth: true,
+      });
+      console.log(`[news-digest] Browser for "${topic}": ${browser.browser_live_view_url}`);
+
+      const stagehand = new Stagehand({
+        env: "LOCAL",
+        localBrowserLaunchOptions: { cdpUrl: browser.cdp_ws_url },
+        model: "openai/gpt-4.1",
+        apiKey: OPENAI_API_KEY,
+        verbose: 1,
+        domSettleTimeout: 30_000,
+      });
+      await stagehand.init();
+
+      const page = stagehand.context.pages()[0];
+
+      let query = `${topic} after:${dateRange[0]} before:${dateRange[1]}`;
+      if (!includePaywalled) {
+        query += ' -site:wsj.com -site:ft.com -site:bloomberg.com';
+      }
+      if (preferredSources.length > 0) {
+        query += ` ${preferredSources.map(s => `site:${s}`).join(' OR ')}`;
+      }
+
+      await page.goto('https://news.google.com');
+      await stagehand.act(`Search for: ${query}`);
+
+      const extractionSchema = z.object({ headlines: z.string() });
+      const extracted = await stagehand.extract(
+        `Extract up to ${maxArticles} article headlines and their sources from the search results.`,
+        extractionSchema,
+      );
+
+      articles.push({ topic, headlines: extracted.headlines });
+
+      await stagehand.close();
+      await kernel.browsers.deleteByID(browser.session_id);
+      console.log(`[news-digest] Browser for "${topic}" killed`);
+
+      if (topic !== sortedTopics[sortedTopics.length - 1]) {
+        await new Promise(resolve => setTimeout(resolve, 2000));
+      }
+    }
+
+    if (notifyEmail) {
+      console.log(`[news-digest] Results will be sent to ${notifyEmail}`);
+    }
+
+    return {
+      articles,
+      totalTopics: sortedTopics.length,
+      notificationSentTo: notifyEmail ?? null,
     };
   },
 );
